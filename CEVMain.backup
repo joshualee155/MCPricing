@@ -1,0 +1,69 @@
+#include <iostream>
+#include <fstream>
+
+#include "FDEuropeanCEVEngine.hpp"
+#include "CEV.hpp"
+#include <memory>
+#include <string>
+
+using namespace std;
+
+int main()
+{
+    // Price of SSE 50 ETF as of 24-Mar-2016, available at http://www.sse.com.cn/assortment/options/price/
+    double Price = 2.140;
+    
+    // One year government bond yield as of 22-Mar-2016, available at https://asianbondsonline.adb.org/china/data/marketwatch.php?code=government_bond_yields
+    double Rate  = 0.021;
+    
+    // Countinuous dividend rate is assumed to be zero.
+    double Rho = 0.0;
+    
+    // Estimated Volatility
+    double Volatility = 0.2277;
+    
+    // Estimated Beta
+    double Beta = 2.8272;
+    
+    // Stochastic processes
+    shared_ptr<ConstantElasticityVarianceProcess> cevprocess(new ConstantElasticityVarianceProcess(Price,Rate - Rho,Volatility,Beta));
+    
+    // Pricing Engines
+    shared_ptr<FDEuropeanCEVEngine> fdcevEngine(new FDEuropeanCEVEngine(cevprocess, Rate, 250, 400));
+    
+    // Products
+    shared_ptr<VanillaPayoff> vanillaPayoff(new VanillaPayoff());
+    shared_ptr<VanillaOption> vanillaOption(new VanillaOption());
+    vanillaOption->setPayoff(vanillaPayoff);
+    vanillaOption->setPricingEngine(fdcevEngine);
+    
+    ifstream inputfile;
+    inputfile.open("/Users/josh/Documents/optionInputs.txt", ios::in);
+    string line;
+    if (inputfile.good())
+    {
+        double Strike, Time;
+        char Type;
+        
+        while(!inputfile.eof())
+        {
+            // Input file has the data structure as "Type Strike Maturity"
+            inputfile >> Type >> Strike >> Time;
+            vanillaPayoff->SetStrike(Strike);
+            vanillaPayoff->SetType(Type == 'C' ? VanillaPayoff::Call : VanillaPayoff::Put);
+            vanillaOption->setExercise(Time);
+            
+            printf(Type == 'C' ? "Call Option " : "Put  Option ");
+            printf("Strike : %8.5f ", Strike);
+            printf("Time : %8.5f ", Time);
+            printf("Price : %8.5f\n", vanillaOption->getValue());
+        }
+    }
+    
+    inputfile.close();
+    
+
+	return 0;
+}
+
+
